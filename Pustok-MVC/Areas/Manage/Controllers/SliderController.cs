@@ -1,4 +1,5 @@
 ﻿using Humanizer.Localisation;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -9,6 +10,7 @@ using Pustok_MVC.Models;
 
 namespace Pustok_MVC.Areas.Manage.Controllers
 {
+    [Authorize]
     [Area("Manage")]
     public class SliderController : Controller
     {

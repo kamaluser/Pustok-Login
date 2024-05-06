@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using Pustok_MVC.Areas.Manage.ViewModels;
@@ -9,6 +10,7 @@ using static System.Reflection.Metadata.BlobBuilder;
 
 namespace Pustok_MVC.Areas.Manage.Controllers
 {
+    [Authorize]
     [Area("manage")]
     public class BookController : Controller
     {
@@ -22,7 +24,7 @@ namespace Pustok_MVC.Areas.Manage.Controllers
         }
         public IActionResult Index(int page = 1)
         {
-            var query = _context.Books.Include(x => x.Author).Include(x => x.Genre).Include(x => x.BookImages.Where(x => x.PosterStatus == true)).OrderByDescending(x => x.Id);
+            var query = _context.Books.Include(x => x.Author).Include(x => x.Genre).Include(x => x.BookImages.Where(x => x.PosterStatus == true)).Where(x=>!x.IsDeleted).OrderByDescending(x => x.Id);
 
             var data = PaginatedList<Book>.Create(query, page, 2);
             if (data.TotalPages < page) return RedirectToAction("index", new { page = data.TotalPages });
@@ -317,18 +319,27 @@ namespace Pustok_MVC.Areas.Manage.Controllers
         }
         public IActionResult Delete(int id)
         {
-            Book existBook = _context.Books.Find(id);
-            if (existBook == null) return NotFound();
+            Book book = _context.Books.Include(x=>x.BookImages)
+                .Include(x=>x.Author)
+                .Include(x=>x.Genre)
+                .Include(x=>x.BookTags).ThenInclude(bt=>bt.Tag).FirstOrDefault(x=>x.Id == id && !x.IsDeleted);
 
-            _context.Books.Remove(existBook);
+            if (book == null) return RedirectToAction("notfound", "error");
+
+            return View(book);
+        }
+
+        [HttpPost]
+        public IActionResult Delete(Book book)
+        {
+            Book existsBook = _context.Books.FirstOrDefault(x => x.Id == book.Id && !x.IsDeleted);
+            if (existsBook == null) return RedirectToAction("notfound", "error");
+
+            existsBook.IsDeleted = true;
+            existsBook.ModifiedAt = DateTime.UtcNow;
             _context.SaveChanges();
 
-            foreach (var item in existBook.BookImages)
-            {
-                FileManager.Delete(_env.WebRootPath, "manage/uploads/books", item.Name);
-            }
-
-            return Ok();
+            return RedirectToAction("index");
         }
 
     }
